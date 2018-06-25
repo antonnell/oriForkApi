@@ -6,7 +6,7 @@ const model = {
   * @name coinTypes
   *   The types of coins that can be claimed
   */
-  coinTypes = [
+  coinTypes: [
     'Bitcoin',
     'BitcoinCash',
     'LiteCoin',
@@ -37,17 +37,23 @@ const model = {
   */
   getBalance(req, res, next) {
     //validate incoming parameters
-    var validationResult = this.getBalanceValidation(req.body)
+    var validationResult = model.getBalanceValidation(req.body)
     if(validationResult !== true) {
-      res.status(validationResult.status)
+      res.status(400)
       res.body = validationResult
       return next(null, req, res, next)
     }
 
     //select unclaimed and total balance
-    this.selectBalances(req.body.coin_type, req.body.address, (err, balances) => {
+    model.selectBalances(req.body.coin_type, req.body.address, (err, balances) => {
       if(err) {
-        this.returnError(req, res, next, err)
+        model.returnError(req, res, next, err)
+      }
+      if(balances == null) {
+        //return object
+        res.status(201)
+        res.body = { 'status': 201, 'success': true, 'message': 'Not found' }
+        return next(null, req, res, next)
       }
 
       //return object
@@ -61,13 +67,13 @@ const model = {
     if(body.coin_type == null) {
       return { 'status': 400, 'success': false, 'message': 'coin_type is required' }
     }
-    if(!this.coinTypes.includes(body.coin_type)) {
+    if(!model.coinTypes.includes(body.coin_type)) {
       return { 'status': 400, 'success': false, 'message': 'coin_type is invalid' }
     }
     if(body.address == null) {
       return { 'status': 400, 'success': false, 'message': 'address is required' }
     }
-    if(!this.validateAddress(body.coin_type, body.address)) {
+    if(!model.validateAddress(body.coin_type, body.address)) {
       return { 'status': 400, 'success': false, 'message': 'address is invalid' }
     }
 
@@ -79,7 +85,7 @@ const model = {
     return true
   },
 
-  selectBalances(cointType, address, callback) {
+  selectBalances(coinType, address, callback) {
     switch(coinType) {
       case 'Bitcoin':
         db.oneOrNone('select btc.address, coalesce(sum(btc.amount), 0) as total_balance, claimed_balance, coalesce(sum(btc.amount), 0)-claimed_balance as unclaimed_balance from bitcoin_utxo btc left join (select claim_address, coalesce(sum(claim_amount), 0) as claimed_balance from claimed_tokens where claim_address = $1 group by claim_address) ct on btc.address = ct.claim_address where btc.address = $1 group by btc.address, claimed_balance;',
@@ -146,7 +152,7 @@ const model = {
   */
   claimTokens(req, res, next) {
     //validate incoming parameters
-    var validationResult = this.claimTokensValidation(req.body)
+    var validationResult = model.claimTokensValidation(req.body)
     if(validationResult !== true) {
       res.status(validationResult.status)
       res.body = validationResult
@@ -154,9 +160,9 @@ const model = {
     }
 
     //select unclaimed total
-    this.selectBalances(req.body.coin_type, req.body.address, (err, balances) => {
+    model.selectBalances(req.body.coin_type, req.body.address, (err, balances) => {
       if(err) {
-        this.returnError(req, res, next, err)
+        model.returnError(req, res, next, err)
       }
 
       //validate that claim request < unclaimed balance
@@ -167,12 +173,12 @@ const model = {
       }
 
       //calculate how many ORI tokens to pay out
-      var claimAmount = this.calculateClaimAmount(req.body.amount)
+      var claimAmount = model.calculateClaimAmount(req.body.amount)
 
       //insert claim
-      this.insertClaimedTokens(req.body, claimAmount, (err) => {
+      model.insertClaimedTokens(req.body, claimAmount, (err) => {
         if(err) {
-          this.returnError(req, res, next, err)
+          model.returnError(req, res, next, err)
         }
 
         //return object
@@ -187,13 +193,13 @@ const model = {
     if(body.coin_type == null) {
       return { 'status': 400, 'success': false, 'message': 'coin_type is required' }
     }
-    if(!this.coinTypes.includes(body.coin_type)) {
+    if(!model.coinTypes.includes(body.coin_type)) {
       return { 'status': 400, 'success': false, 'message': 'coin_type is invalid' }
     }
     if(body.address == null) {
       return { 'status': 400, 'success': false, 'message': 'address is required' }
     }
-    if(!this.validateAddress(body.coin_type, body.address)) {
+    if(!model.validateAddress(body.coin_type, body.address)) {
       return { 'status': 400, 'success': false, 'message': 'address is invalid' }
     }
     if(body.amount == null) {

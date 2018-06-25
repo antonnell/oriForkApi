@@ -108,5 +108,5 @@ var server = null
 server = require('http').Server(app)
 server.listen(app.get('port'), function () {
   console.log('api.fork.ori',server.address().port)
-  module.exports = server
 })
+module.exports = server
