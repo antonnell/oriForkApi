@@ -1,0 +1,12 @@
+node_modules/
+config/
+selfsigned.*
+Gruntfile.js
+grunt/
+tests/
+.eslintrc.js
+gulpfile.js
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml

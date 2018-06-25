@@ -1,0 +1,25 @@
+{
+  "name": "api.fork.ori",
+  "version": "0.0.1",
+  "engines": {
+    "node": "0.12.7"
+  },
+  "description": "API for Origin fork",
+  "main": "api.fork.ori.js",
+  "scripts": {
+    "start": "node api.fork.ori.js"
+  },
+  "author": "antonnell.crypto@gmail.com",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.17.2",
+    "compression": "^1.7.0",
+    "express": "^4.15.4",
+    "helmet": "^1.3.0",
+    "http-auth": "^2.4.11",
+    "moment": "^2.18.1",
+    "morgan": "^1.8.2",
+    "multer": "^1.3.0",
+    "pg-promise": "^3.9.1"
+  }
+}
