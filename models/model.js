@@ -47,7 +47,7 @@ const model = {
     //select unclaimed and total balance
     model.selectBalances(req.body.coin_type, req.body.address, (err, balances) => {
       if(err) {
-        model.returnError(req, res, next, err)
+        return model.returnError(req, res, next, err)
       }
       if(balances == null) {
         //return object
@@ -82,49 +82,58 @@ const model = {
 
   validateAddress(coin_type, address) {
     //TODO: implement
+    /*
+      Bitcoin
+      BitcoinCash
+      Litecoin
+      Dash
+      Ethereum
+      OriToken (erc20)
+    */
     return true
   },
 
   selectBalances(coinType, address, callback) {
     switch(coinType) {
       case 'Bitcoin':
-        db.oneOrNone('select btc.address, coalesce(sum(btc.amount), 0) as total_balance, claimed_balance, coalesce(sum(btc.amount), 0)-claimed_balance as unclaimed_balance from bitcoin_utxo btc left join (select claim_address, coalesce(sum(claim_amount), 0) as claimed_balance from claimed_tokens where claim_address = $1 group by claim_address) ct on btc.address = ct.claim_address where btc.address = $1 group by btc.address, claimed_balance;',
+        db.oneOrNone('select btc.address, coalesce(sum(btc.amount), 0) as total_balance, coalesce(claimed_balance, 0) as claimed_balance, coalesce(sum(btc.amount), 0)-coalesce(claimed_balance, 0) as unclaimed_balance from bitcoin_utxo btc left join (select claim_address, coalesce(sum(claim_amount), 0) as claimed_balance from claimed_tokens where claim_address = $1 group by claim_address) ct on btc.address = ct.claim_address where btc.address = $1 group by btc.address, claimed_balance;',
         [address])
         .then((data) => {
           callback(null, data)
         })
         .catch(callback)
-        break
+        return
       case 'BitcoinCash':
-        db.oneOrNone('select bcc.address, coalesce(sum(bcc.amount), 0) as total_balance, claimed_balance, coalesce(sum(bcc.amount), 0)-claimed_balance as unclaimed_balance from bitcoin_cash_utxo bcc left join (select claim_address, coalesce(sum(claim_amount), 0) as claimed_balance from claimed_tokens where claim_address = $1 group by claim_address) ct on bcc.address = ct.claim_address where bcc.address = $1 group by bcc.address, claimed_balance;',
+        db.oneOrNone('select bcc.address, coalesce(sum(bcc.amount), 0) as total_balance, coalesce(claimed_balance, 0) as claimed_balance, coalesce(sum(bcc.amount), 0)-coalesce(claimed_balance, 0) as unclaimed_balance from bitcoin_cash_utxo bcc left join (select claim_address, coalesce(sum(claim_amount), 0) as claimed_balance from claimed_tokens where claim_address = $1 group by claim_address) ct on bcc.address = ct.claim_address where bcc.address = $1 group by bcc.address, claimed_balance;',
         [address])
         .then((data) => {
           callback(null, data)
         })
         .catch(callback)
-        break
+        return
       case 'LiteCoin':
-        db.oneOrNone('select ltc.address, coalesce(sum(ltc.amount), 0) as total_balance, claimed_balance, coalesce(sum(ltc.amount), 0)-claimed_balance as unclaimed_balance from litecoin_utxo ltc left join (select claim_address, coalesce(sum(claim_amount), 0) as claimed_balance from claimed_tokens where claim_address = $1 group by claim_address) ct on ltc.address = ct.claim_address where ltc.address = $1 group by ltc.address, claimed_balance;',
+        db.oneOrNone('select ltc.address, coalesce(sum(ltc.amount), 0) as total_balance, coalesce(claimed_balance, 0) as claimed_balance, coalesce(sum(ltc.amount), 0)-coalesce(claimed_balance, 0) as unclaimed_balance from litecoin_utxo ltc left join (select claim_address, coalesce(sum(claim_amount), 0) as claimed_balance from claimed_tokens where claim_address = $1 group by claim_address) ct on ltc.address = ct.claim_address where ltc.address = $1 group by ltc.address, claimed_balance;',
         [address])
         .then((data) => {
           callback(null, data)
         })
         .catch(callback)
-        break
+        return
       case 'Dash':
-        db.oneOrNone('select dash.address, coalesce(sum(dash.amount), 0) as total_balance, claimed_balance, coalesce(sum(dash.amount), 0)-claimed_balance as unclaimed_balance from dash_utxo dash left join (select claim_address, coalesce(sum(claim_amount), 0) as claimed_balance from claimed_tokens where claim_address = $1 group by claim_address) ct on dash.address = ct.claim_address where dash.address = $1 group by dash.address, claimed_balance;',
+        db.oneOrNone('select dash.address, coalesce(sum(dash.amount), 0) as total_balance, coalesce(claimed_balance, 0) as claimed_balance, coalesce(sum(dash.amount), 0)-coalesce(claimed_balance, 0) as unclaimed_balance from dash_utxo dash left join (select claim_address, coalesce(sum(claim_amount), 0) as claimed_balance from claimed_tokens where claim_address = $1 group by claim_address) ct on dash.address = ct.claim_address where dash.address = $1 group by dash.address, claimed_balance;',
         [address])
         .then((data) => {
           callback(null, data)
         })
         .catch(callback)
-        break
+        return
       case 'Ethereum':
         //TODO: implement
         callback('Not implemented')
-        break
+        return
       default:
         callback('coinType not supported')
+        return
     }
 
   },
@@ -162,10 +171,15 @@ const model = {
     //select unclaimed total
     model.selectBalances(req.body.coin_type, req.body.address, (err, balances) => {
       if(err) {
-        model.returnError(req, res, next, err)
+        return model.returnError(req, res, next, err)
       }
 
-      //validate that claim request < unclaimed balance
+      if(balances == null) {
+        res.status(201)
+        res.body = { 'status': 201, 'success': true, 'message': 'Not found' }
+        return next(null, req, res, next)
+      }
+
       if(balances.unclaimed_balance <= req.body.amount) {
         res.status(400)
         res.body = { 'status': 400, 'success': false, 'message': 'claim amount exceeds available balance' }
@@ -177,8 +191,9 @@ const model = {
 
       //insert claim
       model.insertClaimedTokens(req.body, claimAmount, (err) => {
+        console.log('inserted', err)
         if(err) {
-          model.returnError(req, res, next, err)
+          return model.returnError(req, res, next, err)
         }
 
         //return object
@@ -207,6 +222,12 @@ const model = {
     }
     if(!(!isNaN(parseFloat(body.amount)) && isFinite(body.amount)) || body.amount <= 0) {
       return { 'status': 400, 'success': false, 'message': 'amount is invalid' }
+    }
+    if(body.ori_address == null) {
+      return { 'status': 400, 'success': false, 'message': 'amount is required' }
+    }
+    if(!model.validateAddress('ORI', body.ori_address)) {
+      return { 'status': 400, 'success': false, 'message': 'address is invalid' }
     }
 
     return true
